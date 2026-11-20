@@ -32,6 +32,7 @@ namespace NetControl.Throttling
             if (_isDisposed || ip == null) return;
 
             string key = ip.ToString();
+            Log($"SetLimits {key}: download={downloadLimitKbps} KB/s upload={uploadLimitKbps} KB/s");
             if (downloadLimitKbps > 0 && downloadLimitKbps == uploadLimitKbps)
             {
                 _downloadBuckets.TryRemove(key, out _);
@@ -109,6 +110,7 @@ namespace NetControl.Throttling
                 {
                     int error = Marshal.GetLastWin32Error();
                     Console.WriteLine($"[WINDIVERT] Failed to open packet filter. Win32 error {error}. Run as administrator.");
+                    Log($"Open failed: Win32 error {error}");
                     return;
                 }
 
@@ -121,6 +123,7 @@ namespace NetControl.Throttling
                 };
                 _packetThread.Start();
                 Console.WriteLine("[WINDIVERT] Windows packet throttling started.");
+                Log("Packet filter opened successfully.");
             }
         }
 
@@ -146,6 +149,8 @@ namespace NetControl.Throttling
         {
             IntPtr buffer = Marshal.AllocHGlobal((int)PacketBufferSize);
             IntPtr address = Marshal.AllocHGlobal(256);
+            long inspectedPackets = 0;
+            long droppedPackets = 0;
 
             try
             {
@@ -180,6 +185,7 @@ namespace NetControl.Throttling
                     {
                         string source = new IPAddress(sourceIp).ToString();
                         string destination = new IPAddress(destinationIp).ToString();
+                        inspectedPackets++;
 
                         if (_globalBuckets.TryGetValue(source, out TokenBucket sourceBucket))
                         {
@@ -208,6 +214,15 @@ namespace NetControl.Throttling
                             (uint)packet.Length,
                             out _,
                             address);
+                    }
+                    else
+                    {
+                        droppedPackets++;
+                        if (droppedPackets == 1 ||
+                            droppedPackets % 1000 == 0)
+                        {
+                            Log($"Inspected={inspectedPackets} dropped={droppedPackets}");
+                        }
                     }
                 }
             }
@@ -252,6 +267,24 @@ namespace NetControl.Throttling
             _isDisposed = true;
             ResetAll();
             GC.SuppressFinalize(this);
+        }
+
+        private static void Log(string message)
+        {
+            try
+            {
+                string path = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "NetControl",
+                    "windivert.log");
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.AppendAllText(
+                    path,
+                    $"[{DateTime.Now:O}] {message}{Environment.NewLine}");
+            }
+            catch
+            {
+            }
         }
 
         [DllImport("WinDivert.dll", CallingConvention = CallingConvention.Cdecl,
