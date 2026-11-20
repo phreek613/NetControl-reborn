@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -8,6 +7,8 @@ using System.Text;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Win32;
+using System.Diagnostics;
 using NetControl.Throttling;
 using SharpPcap;
 using SharpPcap.LibPcap;
@@ -52,6 +53,8 @@ namespace NetControl
         public event Action<string> OnInterfaceDisconnected;
 
         private long _lastNetworkChangeTimestamp = 0;
+        private bool _forwardingEnabledForSpoof;
+        private int? _originalIpEnableRouter;
 
         public CArp(LibPcapLiveDevice nic, PcList pcList)
         {
@@ -507,6 +510,7 @@ namespace NetControl
                     Console.WriteLine("[ERROR] Router MAC not found.");
                     return;
                 }
+                EnableWindowsIpv4Forwarding();
                 _isSpoofing = true;
                 _spoofingThread = new Thread(SpoofLoop) { IsBackground = true };
                 _spoofingThread.Start();
@@ -522,7 +526,117 @@ namespace NetControl
                 _spoofingThread?.Join(TimeSpan.FromSeconds(5));
                 _spoofingThread = null;
                 _bandwidthThrottler?.ResetAll();
+                RestoreWindowsIpv4Forwarding();
                 Console.WriteLine(">>> ARP SPOOF STOPPED <<<");
+            }
+        }
+
+        private void EnableWindowsIpv4Forwarding()
+        {
+            if (!OperatingSystem.IsWindows()) return;
+
+            try
+            {
+                using (var tcpip = Registry.LocalMachine.OpenSubKey(
+                           @"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters",
+                           writable: true))
+                {
+                    if (tcpip != null)
+                    {
+                        object existing = tcpip.GetValue("IPEnableRouter");
+                        _originalIpEnableRouter = existing is int value ? value : null;
+                        tcpip.SetValue("IPEnableRouter", 1, RegistryValueKind.DWord);
+                    }
+                }
+
+                NetworkInterface selectedInterface = FindMonitoredNetworkInterface();
+                if (selectedInterface != null)
+                {
+                    ExecuteNetsh($"interface ipv4 set interface \"{selectedInterface.Name}\" forwarding=enabled");
+                }
+                _forwardingEnabledForSpoof = true;
+                Console.WriteLine("[INFO] Windows IPv4 forwarding enabled for spoofing.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FORWARDING ERROR] Failed to enable Windows IPv4 forwarding: {ex.Message}");
+            }
+        }
+
+        private void RestoreWindowsIpv4Forwarding()
+        {
+            if (!OperatingSystem.IsWindows() || !_forwardingEnabledForSpoof) return;
+
+            try
+            {
+                NetworkInterface selectedInterface = FindMonitoredNetworkInterface();
+                if (selectedInterface != null)
+                {
+                    string forwarding = (_originalIpEnableRouter == 1) ? "enabled" : "disabled";
+                    ExecuteNetsh($"interface ipv4 set interface \"{selectedInterface.Name}\" forwarding={forwarding}");
+                }
+
+                using (var tcpip = Registry.LocalMachine.OpenSubKey(
+                           @"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters",
+                           writable: true))
+                {
+                    if (tcpip != null)
+                    {
+                        tcpip.SetValue("IPEnableRouter",
+                            _originalIpEnableRouter ?? 0,
+                            RegistryValueKind.DWord);
+                    }
+                }
+                Console.WriteLine("[INFO] Windows IPv4 forwarding restored.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FORWARDING ERROR] Failed to restore Windows IPv4 forwarding: {ex.Message}");
+            }
+            finally
+            {
+                _forwardingEnabledForSpoof = false;
+                _originalIpEnableRouter = null;
+            }
+        }
+
+        private NetworkInterface FindMonitoredNetworkInterface()
+        {
+            foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (nic.Name == _device?.Name ||
+                    nic.Description == _device?.Description ||
+                    nic.Name.Equals(_device?.Interface?.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return nic;
+                }
+            }
+            return null;
+        }
+
+        private static bool ExecuteNetsh(string arguments)
+        {
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "netsh",
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using Process process = Process.Start(startInfo);
+                if (process == null) return false;
+                process.WaitForExit(3000);
+                return process.ExitCode == 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NETSH ERROR] {ex.Message}");
+                return false;
             }
         }
 
@@ -1010,6 +1124,8 @@ namespace NetControl
                 NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
             }
             catch { }
+
+            RestoreWindowsIpv4Forwarding();
 
             _isListeningArp = false;
             _isDiscovering = false;
