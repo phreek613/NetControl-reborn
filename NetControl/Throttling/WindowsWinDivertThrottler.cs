@@ -13,6 +13,7 @@ namespace NetControl.Throttling
 
         private readonly ConcurrentDictionary<string, TokenBucket> _downloadBuckets = new();
         private readonly ConcurrentDictionary<string, TokenBucket> _uploadBuckets = new();
+        private readonly ConcurrentDictionary<string, TokenBucket> _globalBuckets = new();
         private readonly object _handleLock = new();
         private IntPtr _handle;
         private Thread _packetThread;
@@ -31,8 +32,18 @@ namespace NetControl.Throttling
             if (_isDisposed || ip == null) return;
 
             string key = ip.ToString();
-            UpdateBucket(_downloadBuckets, key, downloadLimitKbps);
-            UpdateBucket(_uploadBuckets, key, uploadLimitKbps);
+            if (downloadLimitKbps > 0 && downloadLimitKbps == uploadLimitKbps)
+            {
+                _downloadBuckets.TryRemove(key, out _);
+                _uploadBuckets.TryRemove(key, out _);
+                UpdateBucket(_globalBuckets, key, downloadLimitKbps);
+            }
+            else
+            {
+                _globalBuckets.TryRemove(key, out _);
+                UpdateBucket(_downloadBuckets, key, downloadLimitKbps);
+                UpdateBucket(_uploadBuckets, key, uploadLimitKbps);
+            }
 
             if (downloadLimitKbps > 0 || uploadLimitKbps > 0)
             {
@@ -69,8 +80,11 @@ namespace NetControl.Throttling
             string key = ip.ToString();
             _downloadBuckets.TryRemove(key, out _);
             _uploadBuckets.TryRemove(key, out _);
+            _globalBuckets.TryRemove(key, out _);
 
-            if (_downloadBuckets.IsEmpty && _uploadBuckets.IsEmpty)
+            if (_downloadBuckets.IsEmpty &&
+                _uploadBuckets.IsEmpty &&
+                _globalBuckets.IsEmpty)
             {
                 StopPacketFilter();
             }
@@ -80,6 +94,7 @@ namespace NetControl.Throttling
         {
             _downloadBuckets.Clear();
             _uploadBuckets.Clear();
+            _globalBuckets.Clear();
             StopPacketFilter();
         }
 
@@ -166,7 +181,15 @@ namespace NetControl.Throttling
                         string source = new IPAddress(sourceIp).ToString();
                         string destination = new IPAddress(destinationIp).ToString();
 
-                        if (_uploadBuckets.TryGetValue(source, out TokenBucket uploadBucket))
+                        if (_globalBuckets.TryGetValue(source, out TokenBucket sourceBucket))
+                        {
+                            allow = sourceBucket.TryConsume(packet.Length);
+                        }
+                        else if (_globalBuckets.TryGetValue(destination, out TokenBucket destinationBucket))
+                        {
+                            allow = destinationBucket.TryConsume(packet.Length);
+                        }
+                        else if (_uploadBuckets.TryGetValue(source, out TokenBucket uploadBucket))
                         {
                             allow = uploadBucket.TryConsume(packet.Length);
                         }

@@ -62,14 +62,11 @@ namespace NetControl.Tests
         {
             var pc = new PC
             {
-                DownloadLimitKb = -10,
-                UploadLimitKb = 2048
+                BandwidthLimitKb = -10
             };
 
-            Assert.Equal(0, pc.DownloadLimitKb);
-            Assert.Equal(2048, pc.UploadLimitKb);
-            Assert.Equal("Unlimited", pc.DownloadLimitDisplay);
-            Assert.Equal("2048 KB/s", pc.UploadLimitDisplay);
+            Assert.Equal(0, pc.BandwidthLimitKb);
+            Assert.Equal("Unlimited", pc.BandwidthLimitDisplay);
         }
     }
 }

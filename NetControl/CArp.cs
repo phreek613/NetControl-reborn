@@ -162,8 +162,7 @@ namespace NetControl
             if (pc == null) return;
             pc.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(PC.DownloadLimitKb) ||
-                    e.PropertyName == nameof(PC.UploadLimitKb) ||
+                if (e.PropertyName == nameof(PC.BandwidthLimitKb) ||
                     e.PropertyName == nameof(PC.Redirect) ||
                     e.PropertyName == nameof(PC.Block))
                 {
@@ -181,7 +180,10 @@ namespace NetControl
 
             if (_isSpoofing && target.Redirect && target.CanControl)
             {
-                _bandwidthThrottler.SetLimits(target.Ip, target.DownloadLimitKb, target.UploadLimitKb);
+                _bandwidthThrottler.SetLimits(
+                    target.Ip,
+                    target.BandwidthLimitKb,
+                    target.BandwidthLimitKb);
             }
             else
             {
@@ -675,7 +677,10 @@ namespace NetControl
                         {
                             currentSpoofedThisCycle.Add(target.Ip);
 
-                            _bandwidthThrottler?.SetLimits(target.Ip, target.DownloadLimitKb, target.UploadLimitKb);
+                            _bandwidthThrottler?.SetLimits(
+                                target.Ip,
+                                target.BandwidthLimitKb,
+                                target.BandwidthLimitKb);
 
                             // REDIRECT: Route traffic through us (MITM)
                             SendArpReply(target.Mac.GetAddressBytes(), target.Ip.GetAddressBytes(),
