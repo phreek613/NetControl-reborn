@@ -89,14 +89,14 @@
 
                 <!-- Interface Selector & Action Controls -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,12,0">
-                    <TextBlock Text="Interfaz:" VerticalAlignment="Center" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Text="Interface:" VerticalAlignment="Center" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
                     <ComboBox Name="NetInterfacesBox" Width="210" Height="34" FontSize="12.5" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <Button Grid.Column="3" Name="BtnScan" Classes="primary" Click="OnScanClick" Margin="0,0,8,0" Height="34" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <PathIcon Data="{StaticResource IconSearch}" Width="13" Height="13" Foreground="White" VerticalAlignment="Center"/>
-                        <TextBlock Text="Escanear Red" VerticalAlignment="Center"/>
+                        <TextBlock Text="Scan Network" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
@@ -117,7 +117,7 @@
                     CornerRadius="8" Padding="14,10" Margin="0,0,6,0">
                 <Grid ColumnDefinitions="*, Auto">
                     <StackPanel Grid.Column="0" Spacing="2">
-                        <TextBlock Text="TOTAL DISPOSITIVOS" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="TOTAL DEVICES" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
                         <TextBlock Name="KpiTotalDevices" Text="{Binding TotalDevicesCount}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                     </StackPanel>
                     <Border Grid.Column="1" Width="32" Height="32" CornerRadius="6" Background="{StaticResource AccentCyanBgBrush}" VerticalAlignment="Center">
@@ -132,7 +132,7 @@
                     CornerRadius="8" Padding="14,10" Margin="3,0,3,0">
                 <Grid ColumnDefinitions="*, Auto">
                     <StackPanel Grid.Column="0" Spacing="2">
-                        <TextBlock Text="INTERCEPTADOS" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="INTERCEPTED" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
                         <TextBlock Name="KpiSpoofed" Text="{Binding SpoofedCount}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
                     </StackPanel>
                     <Border Grid.Column="1" Width="32" Height="32" CornerRadius="6" Background="{StaticResource AccentCyanBgBrush}" VerticalAlignment="Center">
@@ -147,7 +147,7 @@
                     CornerRadius="8" Padding="14,10" Margin="3,0,3,0">
                 <Grid ColumnDefinitions="*, Auto">
                     <StackPanel Grid.Column="0" Spacing="2">
-                        <TextBlock Text="BLOQUEADOS" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="BLOCKED" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
                         <TextBlock Name="KpiBlocked" Text="{Binding BlockedCount}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentDangerBrush}"/>
                     </StackPanel>
                     <Border Grid.Column="1" Width="32" Height="32" CornerRadius="6" Background="{StaticResource AccentDangerBgBrush}" VerticalAlignment="Center">
@@ -162,7 +162,7 @@
                     CornerRadius="8" Padding="14,10" Margin="6,0,0,0">
                 <Grid ColumnDefinitions="*, Auto">
                     <StackPanel Grid.Column="0" Spacing="2">
-                        <TextBlock Text="PUERTA DE ENLACE" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="GATEWAY" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
                         <TextBlock Name="KpiGateway" Text="{Binding GatewayIpDisplay}" FontFamily="{StaticResource MonospaceFontFamily}" FontSize="13.5" FontWeight="Bold" Foreground="{StaticResource AccentWarningBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <Border Grid.Column="1" Width="32" Height="32" CornerRadius="6" Background="{StaticResource AccentWarningBgBrush}" VerticalAlignment="Center">
@@ -178,7 +178,7 @@
             <Grid RowDefinitions="Auto, Auto, *">
 
                 <!-- Table Column Headers -->
-                <Grid Grid.Row="0" ColumnDefinitions="1.1*, 1.3*, 2.0*, 1.0*, 1.0*, 0.9*, 0.5*, 0.5*"
+                <Grid Grid.Row="0" ColumnDefinitions="1.1*, 1.3*, 2.0*, 1.0*, 1.0*, 0.9*, 0.9*, 0.5*, 0.5*"
                       Background="{StaticResource HeaderBackgroundBrush}" Height="36">
                     <TextBlock Text="IP Address" Grid.Column="0" VerticalAlignment="Center" Margin="14,0,4,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"/>
                     <TextBlock Text="MAC Address" Grid.Column="1" VerticalAlignment="Center" Margin="8,0,4,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"/>
@@ -187,11 +187,13 @@
                                ToolTip.Tip="Monitored ingress transfer rate (Download)"/>
                     <TextBlock Text="Upload Speed" Grid.Column="4" VerticalAlignment="Center" Margin="8,0,4,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"
                                ToolTip.Tip="Monitored egress transfer rate (Upload)"/>
-                    <TextBlock Text="Cap (KB/s)" Grid.Column="5" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"
-                               ToolTip.Tip="Allowed bandwidth limit in KB/s (0 = Unlimited). Enabled when Spoof is checked."/>
-                    <TextBlock Text="Spoof" Grid.Column="6" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"
+                    <TextBlock Text="Download Cap" Grid.Column="5" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"
+                               ToolTip.Tip="Download limit in KB/s (0 = Unlimited). Enabled when Spoof is checked."/>
+                    <TextBlock Text="Upload Cap" Grid.Column="6" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"
+                               ToolTip.Tip="Upload limit in KB/s (0 = Unlimited). Enabled when Spoof is checked."/>
+                    <TextBlock Text="Spoof" Grid.Column="7" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"
                                ToolTip.Tip="Enable ARP redirection (MITM)"/>
-                    <TextBlock Text="Block" Grid.Column="7" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"
+                    <TextBlock Text="Block" Grid.Column="8" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11.5" FontWeight="Bold"
                                ToolTip.Tip="Drop all network traffic"/>
                 </Grid>
 
@@ -212,11 +214,11 @@
                                       Foreground="{StaticResource AccentPrimaryBrush}"
                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <TextBlock Text="No hay dispositivos detectados"
+                        <TextBlock Text="No devices detected"
                                    FontSize="15" FontWeight="SemiBold"
                                    Foreground="{StaticResource TextPrimaryBrush}"
                                    HorizontalAlignment="Center"/>
-                        <TextBlock Text="Selecciona una interfaz de red arriba y haz clic en 'Escanear Red' para comenzar el descubrimiento ARP."
+                        <TextBlock Text="Select a network interface above and click 'Scan Network' to begin ARP discovery."
                                    FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
                                    HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="440"/>
                     </StackPanel>
@@ -227,7 +229,7 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="0,3">
-                                <Grid ColumnDefinitions="1.1*, 1.3*, 2.0*, 1.0*, 1.0*, 0.9*, 0.5*, 0.5*" MinHeight="36">
+                                <Grid ColumnDefinitions="1.1*, 1.3*, 2.0*, 1.0*, 1.0*, 0.9*, 0.9*, 0.5*, 0.5*" MinHeight="36">
 
                                     <!-- IP Address -->
                                     <TextBlock Grid.Column="0" Text="{Binding IpDisplay}"
@@ -288,28 +290,42 @@
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
 
-                                    <!-- Bandwidth Throttle Spinner -->
-                                    <NumericUpDown Grid.Column="5"
-                                                   Value="{Binding BandwidthLimitKb}"
-                                                   IsEnabled="{Binding IsThrottlingEnabled}"
-                                                   Minimum="0" Maximum="1048576" Increment="64"
-                                                   FormatString="0"
-                                                   Height="28"
-                                                   FontSize="11.5"
-                                                   Padding="2,1"
-                                                   VerticalAlignment="Center"
-                                                   HorizontalAlignment="Center"
-                                                   Width="84"
-                                                   ToolTip.Tip="Allowed bandwidth in KB/s. 0 = Unlimited."/>
+                                    <!-- Separate Download Bandwidth Limit -->
+                                    <TextBox Grid.Column="5"
+                                             Text="{Binding DownloadLimitKb}"
+                                             IsEnabled="{Binding IsThrottlingEnabled}"
+                                             Height="28"
+                                             FontSize="11.5"
+                                             Padding="6,3"
+                                             VerticalAlignment="Center"
+                                             HorizontalAlignment="Center"
+                                             HorizontalContentAlignment="Center"
+                                             Width="108"
+                                             MaxLength="7"
+                                             ToolTip.Tip="Download limit in KB/s. 0 = Unlimited."/>
+
+                                    <!-- Separate Upload Bandwidth Limit -->
+                                    <TextBox Grid.Column="6"
+                                             Text="{Binding UploadLimitKb}"
+                                             IsEnabled="{Binding IsThrottlingEnabled}"
+                                             Height="28"
+                                             FontSize="11.5"
+                                             Padding="6,3"
+                                             VerticalAlignment="Center"
+                                             HorizontalAlignment="Center"
+                                             HorizontalContentAlignment="Center"
+                                             Width="108"
+                                             MaxLength="7"
+                                             ToolTip.Tip="Upload limit in KB/s. 0 = Unlimited."/>
 
                                     <!-- Spoof Action Checkbox -->
-                                    <CheckBox Grid.Column="6" Classes="spoof-check"
+                                    <CheckBox Grid.Column="7" Classes="spoof-check"
                                               IsChecked="{Binding Redirect}"
                                               IsEnabled="{Binding CanControl}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
                                     <!-- Block Action Checkbox -->
-                                    <CheckBox Grid.Column="7" Classes="block-check"
+                                    <CheckBox Grid.Column="8" Classes="block-check"
                                               IsChecked="{Binding Block}"
                                               IsEnabled="{Binding CanControl}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>

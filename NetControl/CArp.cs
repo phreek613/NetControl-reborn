@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Text;
+using System.Collections.Concurrent;
 using System.Threading;
+using System.Threading.Tasks;
 using NetControl.Throttling;
 using SharpPcap;
 using SharpPcap.LibPcap;
@@ -155,7 +159,8 @@ namespace NetControl
             if (pc == null) return;
             pc.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(PC.BandwidthLimitKb) ||
+                if (e.PropertyName == nameof(PC.DownloadLimitKb) ||
+                    e.PropertyName == nameof(PC.UploadLimitKb) ||
                     e.PropertyName == nameof(PC.Redirect) ||
                     e.PropertyName == nameof(PC.Block))
                 {
@@ -173,14 +178,7 @@ namespace NetControl
 
             if (_isSpoofing && target.Redirect && target.CanControl)
             {
-                if (target.BandwidthLimitKb > 0)
-                {
-                    _bandwidthThrottler.SetLimit(target.Ip, target.BandwidthLimitKb);
-                }
-                else
-                {
-                    _bandwidthThrottler.RemoveLimit(target.Ip);
-                }
+                _bandwidthThrottler.SetLimits(target.Ip, target.DownloadLimitKb, target.UploadLimitKb);
             }
             else
             {
@@ -336,7 +334,9 @@ namespace NetControl
                 uint broadcastUint = BytesToUint(broadcastAddr);
 
                 uint totalHosts = broadcastUint > networkUint ? broadcastUint - networkUint - 1 : 0;
-                uint maxHosts = Math.Min(totalHosts, 1024);
+                // /24 and smaller subnets scan fully; larger subnets scan 4096 hosts
+                // in bounded, low-contention batches rather than sleep for every packet.
+                uint maxHosts = Math.Min(totalHosts, 4096);
 
                 Console.WriteLine($"[DISCOVERY] Network: {new IPAddress(networkAddr)} " +
                                   $"Broadcast: {new IPAddress(broadcastAddr)} " +
@@ -352,8 +352,15 @@ namespace NetControl
 
                     IPAddress target = new IPAddress(targetBytes);
                     SendArpRequest(target);
-                    Thread.Sleep(5);
+
+                    if (offset % 64 == 0)
+                    {
+                        Thread.Sleep(1);
+                    }
                 }
+
+                DiscoverWithIcmp(networkUint, broadcastUint, maxHosts);
+                DiscoverSsdpDevices();
             }
             catch (Exception ex)
             {
@@ -365,6 +372,125 @@ namespace NetControl
             finally
             {
                 _isDiscovering = false;
+            }
+        }
+
+        private void DiscoverWithIcmp(uint networkUint, uint broadcastUint, uint maxHosts)
+        {
+            if (LocalIp == null || SubnetMask == null || !_isDiscovering) return;
+
+            try
+            {
+                var targets = new List<IPAddress>();
+                for (uint offset = 1; offset <= maxHosts && _isDiscovering; offset++)
+                {
+                    uint targetUint = networkUint + offset;
+                    if (targetUint >= broadcastUint) break;
+
+                    byte[] targetBytes = UintToBytes(targetUint);
+                    if (Tools.AreValuesEqual(targetBytes, LocalIp)) continue;
+                    if (RouterIp != null && Tools.AreValuesEqual(targetBytes, RouterIp)) continue;
+
+                    targets.Add(new IPAddress(targetBytes));
+                }
+
+                DiscoverWithIcmpAsync(targets).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ICMP DISCOVERY ERROR] {ex.Message}");
+            }
+        }
+
+        private async Task DiscoverWithIcmpAsync(IReadOnlyList<IPAddress> targets)
+        {
+            using var gate = new SemaphoreSlim(32);
+            var tasks = new List<Task>(targets.Count);
+
+            foreach (IPAddress target in targets)
+            {
+                if (!_isDiscovering) break;
+                await gate.WaitAsync();
+
+                tasks.Add(Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var ping = new Ping();
+                        PingReply reply = await ping.SendPingAsync(target, 180).ConfigureAwait(false);
+                        if (reply.Status == IPStatus.Success)
+                        {
+                            _pcList.AddDevice(new PC
+                            {
+                                Ip = target,
+                                TimeSinceLastArp = DateTime.Now,
+                                Name = "Network Device"
+                            });
+                        }
+                    }
+                    catch
+                    {
+                    }
+                    finally
+                    {
+                        gate.Release();
+                    }
+                }));
+            }
+
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+
+        private void DiscoverSsdpDevices()
+        {
+            if (!_isDiscovering || LocalIp == null) return;
+
+            try
+            {
+                using var udp = new UdpClient(AddressFamily.InterNetwork);
+                udp.Client.ReceiveTimeout = 400;
+                udp.EnableBroadcast = true;
+                udp.JoinMulticastGroup(IPAddress.Parse("239.255.255.250"));
+
+                byte[] request = Encoding.ASCII.GetBytes(
+                    "M-SEARCH * HTTP/1.1\r\n" +
+                    "HOST: 239.255.255.250:1900\r\n" +
+                    "MAN: \"ssdp:discover\"\r\n" +
+                    "MX: 1\r\n" +
+                    "ST: ssdp:all\r\n\r\n");
+
+                var multicastEndpoint = new IPEndPoint(IPAddress.Parse("239.255.255.250"), 1900);
+                udp.Send(request, request.Length, multicastEndpoint);
+
+                long deadline = Stopwatch.GetTimestamp();
+                while (_isDiscovering &&
+                       Stopwatch.GetElapsedTime(deadline).TotalMilliseconds < 1600)
+                {
+                    try
+                    {
+                        IPEndPoint remote = null;
+                        byte[] response = udp.Receive(ref remote);
+                        if (response == null || response.Length == 0) continue;
+
+                        if (remote.Address.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            _pcList.AddDevice(new PC
+                            {
+                                Ip = remote.Address,
+                                TimeSinceLastArp = DateTime.Now,
+                                Name = "SSDP/UPnP Device"
+                            });
+                        }
+                    }
+                    catch (SocketException)
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SSDP DISCOVERY ERROR] {ex.Message}");
             }
         }
 
@@ -435,14 +561,7 @@ namespace NetControl
                         {
                             currentSpoofedThisCycle.Add(target.Ip);
 
-                            if (target.BandwidthLimitKb > 0)
-                            {
-                                _bandwidthThrottler?.SetLimit(target.Ip, target.BandwidthLimitKb);
-                            }
-                            else
-                            {
-                                _bandwidthThrottler?.RemoveLimit(target.Ip);
-                            }
+                            _bandwidthThrottler?.SetLimits(target.Ip, target.DownloadLimitKb, target.UploadLimitKb);
 
                             // REDIRECT: Route traffic through us (MITM)
                             SendArpReply(target.Mac.GetAddressBytes(), target.Ip.GetAddressBytes(),

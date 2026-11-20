@@ -24,11 +24,11 @@ namespace NetControl.Throttling
             ResetAll();
         }
 
-        public void SetLimit(IPAddress ip, int limitKbps)
+        public void SetLimits(IPAddress ip, int downloadLimitKbps, int uploadLimitKbps)
         {
             if (_isDisposed || ip == null) return;
 
-            if (limitKbps <= 0)
+            if (downloadLimitKbps <= 0 && uploadLimitKbps <= 0)
             {
                 RemoveLimit(ip);
                 return;
@@ -43,8 +43,15 @@ namespace NetControl.Throttling
                     return id;
                 });
 
-                // Configure dummynet pipe with bandwidth in KByte/s
-                ExecuteCommand("dnctl", $"pipe {pipeId} config bw {limitKbps}KByte/s");
+                if (downloadLimitKbps > 0)
+                {
+                    ExecuteCommand("dnctl", $"pipe {pipeId} config bw {downloadLimitKbps}KByte/s");
+                }
+
+                if (uploadLimitKbps > 0)
+                {
+                    ExecuteCommand("dnctl", $"pipe {pipeId + 1} config bw {uploadLimitKbps}KByte/s");
+                }
             }
         }
 

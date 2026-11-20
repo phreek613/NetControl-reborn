@@ -56,5 +56,20 @@ namespace NetControl.Tests
             Assert.StartsWith("Desktop — VeryLongHostnameThatExceedsNormalLengthLimit", pc.DeviceLabel);
             Assert.EndsWith("…", pc.DeviceLabel);
         }
+
+        [Fact]
+        public void BandwidthLimits_ShouldClampNegativeAndRemainIndependent()
+        {
+            var pc = new PC
+            {
+                DownloadLimitKb = -10,
+                UploadLimitKb = 2048
+            };
+
+            Assert.Equal(0, pc.DownloadLimitKb);
+            Assert.Equal(2048, pc.UploadLimitKb);
+            Assert.Equal("Unlimited", pc.DownloadLimitDisplay);
+            Assert.Equal("2048 KB/s", pc.UploadLimitDisplay);
+        }
     }
 }

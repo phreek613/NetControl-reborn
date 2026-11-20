@@ -14,7 +14,8 @@ namespace NetControl.Throttling
     {
         public string InterfaceName { get; }
 
-        private readonly ConcurrentDictionary<string, TokenBucket> _buckets = new();
+        private readonly ConcurrentDictionary<string, TokenBucket> _downloadBuckets = new();
+        private readonly ConcurrentDictionary<string, TokenBucket> _uploadBuckets = new();
         private bool _isDisposed = false;
 
         public TokenBucketThrottler(string interfaceName)
@@ -22,22 +23,37 @@ namespace NetControl.Throttling
             InterfaceName = interfaceName ?? string.Empty;
         }
 
-        public void SetLimit(IPAddress ip, int limitKbps)
+        public void SetLimits(IPAddress ip, int downloadLimitKbps, int uploadLimitKbps)
         {
             if (_isDisposed || ip == null) return;
 
-            if (limitKbps <= 0)
+            string key = ip.ToString();
+            if (downloadLimitKbps <= 0)
             {
-                RemoveLimit(ip);
-                return;
+                _downloadBuckets.TryRemove(key, out _);
+            }
+            else
+            {
+                UpdateBucket(_downloadBuckets, key, downloadLimitKbps);
             }
 
+            if (uploadLimitKbps <= 0)
+            {
+                _uploadBuckets.TryRemove(key, out _);
+            }
+            else
+            {
+                UpdateBucket(_uploadBuckets, key, uploadLimitKbps);
+            }
+        }
+
+        private static void UpdateBucket(ConcurrentDictionary<string, TokenBucket> buckets, string key, int limitKbps)
+        {
             long rateBytesPerSec = (long)limitKbps * 1024;
-            // Allow up to 1.5 seconds worth of burst capacity
             long maxCapacity = Math.Max(rateBytesPerSec * 3 / 2, 4096);
 
-            _buckets.AddOrUpdate(
-                ip.ToString(),
+            buckets.AddOrUpdate(
+                key,
                 _ => new TokenBucket(rateBytesPerSec, maxCapacity),
                 (_, existing) =>
                 {
@@ -49,7 +65,9 @@ namespace NetControl.Throttling
         public void RemoveLimit(IPAddress ip)
         {
             if (_isDisposed || ip == null) return;
-            _buckets.TryRemove(ip.ToString(), out _);
+            string key = ip.ToString();
+            _downloadBuckets.TryRemove(key, out _);
+            _uploadBuckets.TryRemove(key, out _);
         }
 
         /// <summary>
@@ -61,7 +79,7 @@ namespace NetControl.Throttling
         {
             if (_isDisposed || ip == null) return true;
 
-            if (_buckets.TryGetValue(ip.ToString(), out var bucket))
+            if (_downloadBuckets.TryGetValue(ip.ToString(), out var bucket))
             {
                 return bucket.TryConsume(packetSizeBytes);
             }
@@ -71,7 +89,8 @@ namespace NetControl.Throttling
 
         public void ResetAll()
         {
-            _buckets.Clear();
+            _downloadBuckets.Clear();
+            _uploadBuckets.Clear();
         }
 
         public void Dispose()

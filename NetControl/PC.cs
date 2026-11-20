@@ -216,24 +216,43 @@ namespace NetControl
             }
         }
 
-        private int _bandwidthLimitKb = 0;
-        /// <summary>Allowed bandwidth limit in KB/s (0 = Unlimited).</summary>
-        public int BandwidthLimitKb
+        private int _downloadLimitKb = 0;
+        /// <summary>Download bandwidth limit in KB/s (0 = Unlimited).</summary>
+        public int DownloadLimitKb
         {
-            get => _bandwidthLimitKb;
+            get => _downloadLimitKb;
             set
             {
                 int clamped = Math.Max(0, value);
-                if (_bandwidthLimitKb != clamped)
+                if (_downloadLimitKb != clamped)
                 {
-                    _bandwidthLimitKb = clamped;
+                    _downloadLimitKb = clamped;
                     OnPropertyChanged();
-                    OnPropertyChanged(nameof(BandwidthLimitDisplay));
+                    OnPropertyChanged(nameof(DownloadLimitDisplay));
                 }
             }
         }
 
-        public string BandwidthLimitDisplay => _bandwidthLimitKb == 0 ? "Unlimited" : $"{_bandwidthLimitKb} KB/s";
+        public string DownloadLimitDisplay => _downloadLimitKb == 0 ? "Unlimited" : $"{_downloadLimitKb} KB/s";
+
+        private int _uploadLimitKb = 0;
+        /// <summary>Upload bandwidth limit in KB/s (0 = Unlimited).</summary>
+        public int UploadLimitKb
+        {
+            get => _uploadLimitKb;
+            set
+            {
+                int clamped = Math.Max(0, value);
+                if (_uploadLimitKb != clamped)
+                {
+                    _uploadLimitKb = clamped;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(UploadLimitDisplay));
+                }
+            }
+        }
+
+        public string UploadLimitDisplay => _uploadLimitKb == 0 ? "Unlimited" : $"{_uploadLimitKb} KB/s";
 
         private bool _isGateway;
         public bool IsGateway

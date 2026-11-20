@@ -37,11 +37,11 @@ namespace NetControl.Throttling
             }
         }
 
-        public void SetLimit(IPAddress ip, int limitKbps)
+        public void SetLimits(IPAddress ip, int downloadLimitKbps, int uploadLimitKbps)
         {
             if (_isDisposed || ip == null) return;
 
-            if (limitKbps <= 0)
+            if (downloadLimitKbps <= 0 && uploadLimitKbps <= 0)
             {
                 RemoveLimit(ip);
                 return;
@@ -57,17 +57,29 @@ namespace NetControl.Throttling
                     return id;
                 });
 
-                // Convert KB/s to kbit/s (1 KB/s = 8 kbit/s)
-                int rateKbit = Math.Max(8, limitKbps * 8);
+                if (downloadLimitKbps > 0)
+                {
+                    int downloadClassId = classId;
+                    int downloadRateKbit = Math.Max(8, downloadLimitKbps * 8);
+                    ExecuteTc($"class replace dev {InterfaceName} parent 1: classid 1:{downloadClassId} htb rate {downloadRateKbit}kbit ceil {downloadRateKbit}kbit");
+                    ExecuteTc($"filter replace dev {InterfaceName} protocol ip parent 1: prio 1 handle {downloadClassId} u32 match ip dst {ipStr} flowid 1:{downloadClassId}");
+                }
+                else
+                {
+                    ExecuteTc($"filter del dev {InterfaceName} protocol ip parent 1: prio 1 handle {classId} u32", ignoreErrors: true);
+                }
 
-                // Create or replace HTB class with specified bandwidth rate and ceiling
-                ExecuteTc($"class replace dev {InterfaceName} parent 1: classid 1:{classId} htb rate {rateKbit}kbit ceil {rateKbit}kbit");
-
-                // Filter traffic directed to the victim IP
-                ExecuteTc($"filter replace dev {InterfaceName} protocol ip parent 1: prio 1 handle {classId} u32 match ip dst {ipStr} flowid 1:{classId}");
-
-                // Filter traffic coming from the victim IP
-                ExecuteTc($"filter replace dev {InterfaceName} protocol ip parent 1: prio 1 handle {classId + 10000} u32 match ip src {ipStr} flowid 1:{classId}");
+                if (uploadLimitKbps > 0)
+                {
+                    int uploadClassId = classId + 10000;
+                    int uploadRateKbit = Math.Max(8, uploadLimitKbps * 8);
+                    ExecuteTc($"class replace dev {InterfaceName} parent 1: classid 1:{uploadClassId} htb rate {uploadRateKbit}kbit ceil {uploadRateKbit}kbit");
+                    ExecuteTc($"filter replace dev {InterfaceName} protocol ip parent 1: prio 1 handle {uploadClassId} u32 match ip src {ipStr} flowid 1:{uploadClassId}");
+                }
+                else
+                {
+                    ExecuteTc($"filter del dev {InterfaceName} protocol ip parent 1: prio 1 handle {classId + 10000} u32", ignoreErrors: true);
+                }
             }
         }
 

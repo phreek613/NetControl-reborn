@@ -11,10 +11,10 @@ namespace NetControl.Throttling
         string InterfaceName { get; }
 
         /// <summary>
-        /// Sets the maximum bandwidth limit for a target IP in KB/s.
-        /// If limitKbps <= 0, the limit is removed.
+        /// Sets independent download and upload limits for a target IP in KB/s.
+        /// Zero disables that direction.
         /// </summary>
-        void SetLimit(IPAddress ip, int limitKbps);
+        void SetLimits(IPAddress ip, int downloadLimitKbps, int uploadLimitKbps);
 
         /// <summary>
         /// Removes any active bandwidth limit for the given target IP.

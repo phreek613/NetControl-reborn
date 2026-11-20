@@ -10,6 +10,8 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace NetControl
@@ -125,6 +127,106 @@ namespace NetControl
             {
                 SetStatus("Warning: Superuser privileges or CAP_NET_RAW required.", "warning");
             }
+
+            if (OperatingSystem.IsWindows() && !PrivilegeDetector.IsElevated())
+            {
+                Dispatcher.UIThread.Post(ShowElevationPrompt);
+            }
+        }
+
+        private void ShowElevationPrompt()
+        {
+            var title = new TextBlock
+            {
+                Text = "Administrator Privileges Required",
+                FontSize = 18,
+                FontWeight = FontWeight.Bold,
+                Foreground = Brushes.White
+            };
+
+            var message = new TextBlock
+            {
+                Text = "NetControl needs to run as administrator to open Windows packet capture interfaces and perform ARP controls.\n\nRestart now with elevated privileges?",
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 13,
+                Foreground = Brushes.LightGray,
+                MaxWidth = 420
+            };
+
+            var restartButton = new Button
+            {
+                Content = "Restart as Administrator",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+            var continueButton = new Button
+            {
+                Content = "Continue without Elevation",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+
+            var prompt = new Window
+            {
+                Title = "Administrator Access",
+                Width = 470,
+                Height = 230,
+                CanResize = false,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                SystemDecorations = SystemDecorations.BorderOnly,
+                Content = new StackPanel
+                {
+                    Margin = new Thickness(24),
+                    Spacing = 16,
+                    Children =
+                    {
+                        title,
+                        message,
+                        new StackPanel
+                        {
+                            Orientation = Avalonia.Layout.Orientation.Horizontal,
+                            Spacing = 10,
+                            Children =
+                            {
+                                restartButton,
+                                continueButton
+                            }
+                        }
+                    }
+                }
+            };
+
+            restartButton.Click += (_, _) =>
+            {
+                try
+                {
+                    string executable = Environment.ProcessPath;
+                    if (string.IsNullOrWhiteSpace(executable))
+                    {
+                        executable = Process.GetCurrentProcess().MainModule?.FileName;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(executable))
+                    {
+                        var startInfo = new ProcessStartInfo
+                        {
+                            FileName = executable,
+                            UseShellExecute = true,
+                            Verb = "runas"
+                        };
+
+                        Process.Start(startInfo);
+                        prompt.Close();
+                        Close();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    SetStatus($"Elevation was cancelled or failed: {ex.Message}", "warning");
+                    prompt.Close();
+                }
+            };
+
+            continueButton.Click += (_, _) => prompt.Close();
+            prompt.ShowDialog(this);
         }
 
         public void OnDismissDisclaimerClick(object sender, RoutedEventArgs e)
