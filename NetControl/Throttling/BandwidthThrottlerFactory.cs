@@ -41,7 +41,18 @@ namespace NetControl.Throttling
                 }
             }
 
-            // Windows and other platforms use the resilient managed TokenBucketThrottler
+            if (OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    return new WindowsWinDivertThrottler(interfaceName);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[THROTTLER] WindowsWinDivertThrottler initialization failed: {ex.Message}. Falling back to TokenBucketThrottler.");
+                }
+            }
+
             return new TokenBucketThrottler(interfaceName);
         }
     }
